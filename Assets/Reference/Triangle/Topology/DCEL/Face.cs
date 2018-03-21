@@ -94,15 +94,40 @@ namespace TriangleNet.Topology.DCEL
         public IEnumerable<HalfEdge> EnumerateEdges()
         {
             var edge = this.Edge;
-            int first = edge.ID;
 
+            int first = edge.ID;
+            
             do
             {
                 yield return edge;
-
                 edge = edge.Next;
-            } while (edge.ID != first);
+
+            } while ( edge.ID != first );
         }
+
+        public List<Point> GetAllVertices ( )
+        {
+            var edge = this.Edge;
+            if ( edge == null ) return null;
+
+            int first = edge.ID;
+            
+            var points = new List<Point>();
+            
+            while ( edge != null  )
+            {
+
+                points.Add ( edge.Origin );
+                var next = edge.Next;
+                if (next == null || next.ID == first )
+                    break;
+                edge = next;
+            }
+
+            if ( !Bounded ) points.Add ( edge.Twin.Origin );
+            return points;
+        }
+
 
         public override string ToString()
         {

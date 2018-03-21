@@ -1,0 +1,107 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSInitForces
+#pragma kernel CSUpdateForces
+#pragma kernel CSUpdatePosition
+
+float deltaTime;
+
+float3 center;
+
+float damping;
+float stiffness;
+
+struct Mass
+{
+
+	float mass;
+	
+	int id;
+	int label;
+
+	float3 nor;
+	float3 pos;
+	float3 vel;
+	float3 force;
+
+};
+
+struct Spring
+{
+	int m0;
+	int m1;	
+	float length;
+	//float stiffness;
+};
+
+RWStructuredBuffer<Mass> massBuffer;
+RWStructuredBuffer<Spring> springBuffer;
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+
+[numthreads(10, 1, 1)]
+void CSInitForces(uint3 id : SV_DispatchThreadID )
+{
+
+	//Mass m = massBuffer[id.x];
+	//float3 mV  = m.pos - center;
+	//float l = length(mV);
+	//float mL  = l < 0.0000001f ? 0.0000001f : l;
+	//float3 mN = mV  / mL;
+	//float3 exF = mN / mL;
+	//float3 exF = float3(0f, 0f, -1f);
+	//massBuffer[id.x].force = ((float)(m.label == 0)) * exF;// : float3(0, 0, 0);
+	//massBuffer[id.x].force =  massBuffer[id.x].nor * exF * 0.01f;//
+
+	
+//float3(0, 0, -0.01F);//
+	massBuffer[id.x].force =  massBuffer[id.x].nor  * 0.01F;// / mL;
+	//massBuffer[id.x].force = float3(0, 0, 0);
+}
+
+[numthreads(10, 1, 1)]
+void CSUpdateForces(uint3 id : SV_DispatchThreadID)
+{
+	Spring s = springBuffer[id.x];
+	int index0 = s.m0;
+	int index1 = s.m1;
+	Mass m0 = massBuffer[index0];
+	Mass m1 = massBuffer[index1];
+	float3 mV = m1.pos - m0.pos;
+
+	float l = length(mV);
+	float mL  = l < 0.0000001f ? 0.0000001f : l;
+	float3 mN = mV / mL;
+
+	float3 vDelta = m1.vel - m0.vel;
+
+	//float3 mF = stiffness * (mV - s.length * mN) + damping * vDelta;
+	
+	float3 mF = mN * (stiffness * (mL - s.length) + damping * vDelta *mN);
+	//if(mL < s.length * 0.98) mF = float3(0, 0, 0);
+	//if(mL < s.length) mF = float3(0, 0, 0);
+	
+	if(m0.label == 0) m0.force += mF;// : float3(0 ,0 ,0 );
+	if(m1.label == 0) m1.force -= mF;// : float3(0, 0, 0); ((float) (m1.label == 0)) * 
+
+	massBuffer[index0] = m0;
+	massBuffer[index1] = m1;
+	
+}
+
+[numthreads(10, 1, 1)]
+void CSUpdatePosition(uint3 id : SV_DispatchThreadID)
+{
+	Mass m = massBuffer[id.x];
+
+	if(m.label == 0){
+
+		float3 acceleration = m.force / m.mass ;
+		float3 vDelta =  acceleration * deltaTime;
+
+		m.vel += vDelta;
+		m.pos  += m.vel * deltaTime;
+	}
+	massBuffer[id.x] = m;
+}
